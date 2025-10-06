@@ -4,6 +4,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from dotenv import load_dotenv
+from database import User, Bulletin, db
 
 load_dotenv(override=True)
 
@@ -40,7 +41,21 @@ def callback():
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=event.message.text))
+    user_id = event.source.user_id
+    text = event.message.text
+    
+    # データベースにユーザーが存在するか確認
+    with db.connection_context():
+        user, created = User.get_or_create(user_id=user_id)
+    
+    # 管理者判定（最初は手動で設定、後にリッチメニューで操作）
+    if text == '管理者になる':
+        with db.connection_context():
+            user = User.get(User.user_id == user_id)
+            user.is_admin = True
+            user.save()
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text='管理者になりました。'))
+        return
 
 
 if __name__ == "__main__":
