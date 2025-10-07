@@ -4,7 +4,7 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from dotenv import load_dotenv
-from database import User, Bulletin, db
+from database import User, db
 
 load_dotenv(override=True)
 
@@ -12,12 +12,6 @@ app = Flask(__name__)
 
 line_bot_api = LineBotApi(os.environ["ACCESS_TOKEN"])
 handler = WebhookHandler(os.environ["CHANNEL_SECRET"])
-
-
-@app.route("/")
-def index():
-    return "You call index()"
-
 
 @app.route("/callback", methods=["POST"])
 def callback():
@@ -39,25 +33,27 @@ def callback():
     return "OK"
 
 
+# メッセージイベントが発生したときの処理
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    # ユーザーが送ったメッセージを取得
+    message_text = event.message.text
     user_id = event.source.user_id
-    text = event.message.text
-    
-    # データベースにユーザーが存在するか確認
-    with db.connection_context():
-        user, created = User.get_or_create(user_id=user_id)
-    
-    # 管理者判定（最初は手動で設定、後にリッチメニューで操作）
-    if text == '管理者になる':
-        with db.connection_context():
-            user = User.get(User.user_id == user_id)
-            user.is_admin = True
-            user.save()
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text='管理者になりました。'))
-        return
 
+    # 特定のキーワードかどうかをチェック
+    if message_text.startswith("check_done_"):
+        # プロフィール情報を取得
+        profile = line_bot_api.get_profile(user_id)
+        user_name = profile.display_name
+        
+        # 管理者向けにプッシュメッセージを送信
+        message_to_admin = TextSendMessage(text=f"{user_name}さんが回覧板の確認を完了しました。")
+        line_bot_api.push_message(ADMIN_USER_ID, messages=message_to_admin)
 
+        # ユーザーに確認完了メッセージを返信
+        reply_message_to_user = TextSendMessage(text="回覧板の確認を受け付けました！ありがとうございます！")
+        line_bot_api.reply_message(event.reply_token, messages=reply_message_to_user)
+
+# ローカルでの動作テスト用
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
