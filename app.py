@@ -1,25 +1,31 @@
-import os
+# 必要なライブラリをインポート
 from flask import Flask, request, abort
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
-from dotenv import load_dotenv
-from database import User, db
+import os  # osモジュールをインポート
 
-# .envファイルを読み込む
-load_dotenv()
 # Flaskアプリを初期化
 app = Flask(__name__)
 
+# ★★★ ここにLINE Developersで取得した情報を設定する ★★★
+YOUR_CHANNEL_ACCESS_TOKEN = "あなたのチャンネルアクセストークン"
+YOUR_CHANNEL_SECRET = "あなたのチャンネルシークレット"
+
+# .envファイルなどから管理者IDを取得する
+# 環境変数が設定されていない場合に備え、Noneを許容する
+ADMIN_USER_ID = os.environ.get("ADMIN_USER_ID")
+
 # LINEボットのAPIとWebhookハンドラーを初期化
-line_bot_api = LineBotApi(os.environ["ACCESS_TOKEN"])
-handler = WebhookHandler(os.environ["CHANNEL_SECRET"])
+line_bot_api = LineBotApi(YOUR_CHANNEL_ACCESS_TOKEN)
+handler = WebhookHandler(YOUR_CHANNEL_SECRET)
+
+
 # LINEからのメッセージを受け取るためのエンドポイント
-@app.route("/callback", methods=["POST"])
+@app.route("/callback", methods=['POST'])
 def callback():
-    """Messaging APIからの呼び出し関数"""
-    # LINEがリクエストの改ざんを防ぐために付与する署名を取得
-    signature = request.headers["X-Line-Signature"]
+    # LINEからのリクエストヘッダーにある署名を取得
+    signature = request.headers['X-Line-Signature']
 
     # リクエストボディを取得
     body = request.get_data(as_text=True)
@@ -48,9 +54,13 @@ def handle_message(event):
         profile = line_bot_api.get_profile(user_id)
         user_name = profile.display_name
         
-        # 管理者向けにプッシュメッセージを送信
-        message_to_admin = TextSendMessage(text=f"{user_name}さんが回覧板の確認を完了しました。")
-        line_bot_api.push_message(ADMIN_USER_ID, messages=message_to_admin)
+        # 管理者IDが設定されている場合のみ、プッシュメッセージを送信
+        if ADMIN_USER_ID:
+            message_to_admin = TextSendMessage(text=f"{user_name}さんが回覧板の確認を完了しました。")
+            line_bot_api.push_message(ADMIN_USER_ID, messages=message_to_admin)
+        else:
+            # 管理者IDが設定されていない場合のログ出力（任意）
+            app.logger.warning("ADMIN_USER_ID is not set. Push message to admin skipped.")
 
         # ユーザーに確認完了メッセージを返信
         reply_message_to_user = TextSendMessage(text="回覧板の確認を受け付けました！ありがとうございます！")
@@ -59,4 +69,3 @@ def handle_message(event):
 # ローカルでの動作テスト用
 if __name__ == "__main__":
     app.run(debug=True)
-
