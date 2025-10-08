@@ -6,10 +6,11 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from dotenv import load_dotenv
 from database import User, db
 
-# Flaskアプリを初期化
-app = Flask(__name__)
 # .envファイルを読み込む
 load_dotenv()
+# Flaskアプリを初期化
+app = Flask(__name__)
+
 # LINEボットのAPIとWebhookハンドラーを初期化
 line_bot_api = LineBotApi(os.environ["ACCESS_TOKEN"])
 handler = WebhookHandler(os.environ["CHANNEL_SECRET"])
