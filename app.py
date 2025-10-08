@@ -6,32 +6,33 @@ from linebot.models import MessageEvent, TextMessage, TextSendMessage
 from dotenv import load_dotenv
 from database import User, db
 
-load_dotenv(override=True)
-
+# Flaskアプリを初期化
 app = Flask(__name__)
-
+# .envファイルを読み込む
+load_dotenv()
+# LINEボットのAPIとWebhookハンドラーを初期化
 line_bot_api = LineBotApi(os.environ["ACCESS_TOKEN"])
 handler = WebhookHandler(os.environ["CHANNEL_SECRET"])
-
+# LINEからのメッセージを受け取るためのエンドポイント
 @app.route("/callback", methods=["POST"])
 def callback():
     """Messaging APIからの呼び出し関数"""
     # LINEがリクエストの改ざんを防ぐために付与する署名を取得
     signature = request.headers["X-Line-Signature"]
-    # リクエストの内容をテキストで取得
+
+    # リクエストボディを取得
     body = request.get_data(as_text=True)
-    # ログに出力
     app.logger.info("Request body: " + body)
 
     try:
-        # signature と body を比較することで、リクエストがLINEから送信されたものであることを検証
+        # 署名を検証し、問題がなければハンドラーにイベントを渡す
         handler.handle(body, signature)
     except InvalidSignatureError:
-        # クライアントからのリクエストに誤りがあったことを示すエラーを返す
+        # 署名が不正な場合はエラーを返す
+        print("Invalid signature. Please check your channel access token/channel secret.")
         abort(400)
 
-    return "OK"
-
+    return 'OK'
 
 # メッセージイベントが発生したときの処理
 @handler.add(MessageEvent, message=TextMessage)
@@ -57,3 +58,4 @@ def handle_message(event):
 # ローカルでの動作テスト用
 if __name__ == "__main__":
     app.run(debug=True)
+
